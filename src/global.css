@@ -218,3 +218,14 @@ svg {
   stroke: currentColor;
   fill: currentColor;
 }
+
+.rainbow {
+  color: #fff;
+  background: linear-gradient(45deg, #cc0000, #c8cc00, #38cc00, #00ccb5, #0015cc, #5f00cc, #c200cc, #cc0000);
+  background-size: 1600% 1600%;
+  animation: BgSlide 2s linear infinite;
+}
+@keyframes BgSlide {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}

@@ -37,5 +37,9 @@
     "undici": "5.22.1",
     "vite": "4.4.0",
     "vite-tsconfig-paths": "4.2.0"
+  },
+  "dependencies": {
+    "langchain": "^0.0.118",
+    "party-js": "^2.2.0"
   }
 }
