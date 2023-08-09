@@ -5,6 +5,7 @@ import {
   ServiceWorkerRegister,
 } from "@builder.io/qwik-city";
 import { RouterHead } from "./components/router-head/router-head";
+import { SvgDefinitions } from './components/Svg.jsx'
 
 import "./global.css";
 
@@ -26,6 +27,7 @@ export default component$(() => {
       <body lang="en">
         <RouterOutlet />
         <ServiceWorkerRegister />
+        <SvgDefinitions/>
       </body>
     </QwikCityProvider>
   );
