@@ -1,5 +1,5 @@
 import { $, component$, useStore } from "@builder.io/qwik";
-import { Form, RequestHandler, globalAction$, routeAction$ } from "@builder.io/qwik-city";
+import { RequestHandler } from "@builder.io/qwik-city";
 import { PromptTemplate } from 'langchain/prompts'
 import party from 'party-js'
 import { Input, Dialog, Svg } from "~/components";
@@ -15,86 +15,70 @@ const promptTemplate = new PromptTemplate({
   inputVariables: ['opponent1', 'opponent2'],
 })
 
-const getAction = routeAction$((e) => {
-  console.log(e)
-  return 'ok'
-})
-const getGAction = globalAction$((e) => {
-  console.log(e)
-  return 'ok'
-})
-
 export const onPost: RequestHandler = async (requestEvent) => {
   const stream = new ReadableStream({
     async start(controller) {
-      try {
-        // Do work before streaming
-        const OPENAI_API_KEY = requestEvent.env.get('OPENAI_API_KEY')
-        const formData = await requestEvent.parseBody()
-        const opponent1 = formData.opponent1
-        const opponent2 = formData.opponent2
+      // Do work before streaming
+      const OPENAI_API_KEY = requestEvent.env.get('OPENAI_API_KEY')
+      const formData = await requestEvent.parseBody()
+      const opponent1 = formData.opponent1
+      const opponent2 = formData.opponent2
 
-        const prompt = await promptTemplate.format({
-          opponent1: opponent1,
-          opponent2: opponent2
-        })
+      const prompt = await promptTemplate.format({
+        opponent1: opponent1,
+        opponent2: opponent2
+      })
 
-        const body = {
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 300,
-          temperature: 1,
-          stream: true
-        }
+      const body = {
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 300,
+        temperature: 1,
+        stream: true
+      }
 
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'post',
-          headers: {
-            'Content-Type': 'application/json',
-            // Authorization: `Bearer ${OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify(body)
-        })
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'post',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify(body)
+      })
 
-        console.log(await response.json())
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let isStillStreaming = true
 
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let isStillStreaming = true
+      while(isStillStreaming) {
+        const {value, done} = await reader.read()
+        const chunkValue = decoder.decode(value)
 
-        while(isStillStreaming) {
-          const {value, done} = await reader.read()
-          const chunkValue = decoder.decode(value)
+        /**
+         * Captures any string after the text `data: `
+         * @see https://regex101.com/r/R4QgmZ/1
+         */
+        const regex = /data:\s*(.*)/g
+        let match = regex.exec(chunkValue)
 
-          /**
-           * Captures any string after the text `data: `
-           * @see https://regex101.com/r/R4QgmZ/1
-           */
-          const regex = /data:\s*(.*)/g
-          let match = regex.exec(chunkValue)
-
-          while (match !== null) {
-            const payload = match[1]
-            
-            // Close stream
-            if (payload === '[DONE]') {
-              controller.close()
-            }
-
-            const json = JSON.parse(payload)
-            const text = json.choices[0].delta.content || ''
-
-            // Send chunk of data
-            controller.enqueue(text)
-
-            match = regex.exec(chunkValue)
+        while (match !== null) {
+          const payload = match[1]
+          
+          // Close stream
+          if (payload === '[DONE]') {
+            controller.close()
           }
 
-          isStillStreaming = !done
+          const json = JSON.parse(payload)
+          const text = json.choices[0].delta.content || ''
+
+          // Send chunk of data
+          controller.enqueue(text)
+
+          match = regex.exec(chunkValue)
         }
-      } catch (error) {
-        console.log(error)
-        // controller.error(error)
+
+        isStillStreaming = !done
       }
     }
   })
@@ -192,13 +176,8 @@ export default component$(() => {
     imgState.isLoading = false
   })
 
-  const a = getGAction()
-
   return (
     <main class="max-w-4xl mx-auto p-4">
-      <Form action={a}>
-        <button>Sub</button>
-      </Form>
       <h1 class="text-4xl">AI of the Tiger</h1>
       <p>An AI bot that will determine who would win in a fight between...</p>
 
