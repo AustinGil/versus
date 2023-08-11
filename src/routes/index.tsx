@@ -204,7 +204,7 @@ export default component$(() => {
             class={{
               rainbow: state.winner === 'opponent2'
             }}
-            onInput$={(e) => state.opponent2 = (e.target)?.value}
+            onInput$={(e) => state.opponent2 = e.target?.value}
           />
         </div>
 
