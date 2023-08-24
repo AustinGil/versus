@@ -1,10 +1,12 @@
-import { $, component$, useStore } from "@builder.io/qwik";
+import { $, QwikSubmitEvent, component$, useStore } from "@builder.io/qwik";
 import { RequestHandler } from "@builder.io/qwik-city";
+import { z } from 'zod'
 import { PromptTemplate } from 'langchain/prompts'
 import party from 'party-js'
 import { Input, Dialog, Svg } from "~/components";
+import { jsFormSubmit } from "~/utils";
 
-const template = `You're a professional fighting judge from Liverpool and you speak mostly with cockney slang. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent1")? Only tell me who the winner is and a short reason why.
+const template = `You're a professional fighting judge from Liverpool and you speak mostly with cockney slang. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent2")? Only tell me who the winner is and a short reason why.
 
 Format the response like this:
 "winner: opponent1 or opponent2. reason: the reason they won."
@@ -16,36 +18,61 @@ const promptTemplate = new PromptTemplate({
 })
 
 export const onPost: RequestHandler = async (requestEvent) => {
+  const OPENAI_API_KEY = requestEvent.env.get('OPENAI_API_KEY')
+  const formData = await requestEvent.parseBody()
+
+  const validation = z.object({
+    opponent1: z.string().min(1).max(60),
+    opponent2: z.string().min(1).max(60),
+  }).safeParse(formData)
+
+  if (!validation.success) {
+    requestEvent.json(400, {
+      errors: validation.error.issues
+    })
+    return 
+  }
+
+  const opponent1 = formData.opponent1
+  const opponent2 = formData.opponent2
+
+  const prompt = await promptTemplate.format({
+    opponent1: opponent1,
+    opponent2: opponent2
+  })
+
+  const body = {
+    model: 'gpt-3.5-turbo',
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 300,
+    temperature: 1,
+    stream: true
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify(body)
+  })
+
+  if (!response.ok) {
+    console.log(await response.json())
+    requestEvent.send(response.status, response.statusText)
+    return
+  }
+
+  if (!response.body) {
+    requestEvent.send(200, '')
+    return
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       // Do work before streaming
-      const OPENAI_API_KEY = requestEvent.env.get('OPENAI_API_KEY')
-      const formData = await requestEvent.parseBody()
-      const opponent1 = formData.opponent1
-      const opponent2 = formData.opponent2
-
-      const prompt = await promptTemplate.format({
-        opponent1: opponent1,
-        opponent2: opponent2
-      })
-
-      const body = {
-        model: 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 300,
-        temperature: 1,
-        stream: true
-      }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'post',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify(body)
-      })
-
+      // @ts-ignore
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let isStillStreaming = true
@@ -67,13 +94,13 @@ export const onPost: RequestHandler = async (requestEvent) => {
           // Close stream
           if (payload === '[DONE]') {
             controller.close()
+          } else {
+            const json = JSON.parse(payload)
+            const text = json.choices[0].delta.content || ''
+  
+            // Send chunk of data
+            controller.enqueue(text)
           }
-
-          const json = JSON.parse(payload)
-          const text = json.choices[0].delta.content || ''
-
-          // Send chunk of data
-          controller.enqueue(text)
 
           match = regex.exec(chunkValue)
         }
@@ -86,24 +113,6 @@ export const onPost: RequestHandler = async (requestEvent) => {
   requestEvent.send(new Response(stream))
 }
 
-function jsFormSubmit(form: HTMLFormElement) {
-  const url = new URL(form.action)
-  const formData = new FormData(form)
-  const searchParameters = new URLSearchParams(formData)
-
-  const fetchOptions: Parameters<typeof fetch>[1] = {
-    method: form.method
-  }
-
-  if (form.method.toLowerCase() === 'post') {
-    fetchOptions.body = form.enctype === 'multipart/form-data' ? formData : searchParameters
-  } else {
-    url.search = searchParameters
-  }
-
-  return fetch(url, fetchOptions)
-}
-
 export default component$(() => {
   const state = useStore({
     isLoading: false,
@@ -113,7 +122,7 @@ export default component$(() => {
     opponent2: '',
   })
 
-  const handleSubmit = $(async (event: SubmitEvent) => {
+  const handleSubmit = $(async (event: QwikSubmitEvent) => {
     state.isLoading = true
     state.text = ''
     state.winner = ''
@@ -121,6 +130,12 @@ export default component$(() => {
     const form = event.target as HTMLFormElement
 
     const response = await jsFormSubmit(form)
+
+    if (!response.ok) {
+      state.isLoading = false
+      alert("The request experienced an issue.")
+      return
+    }
 
     if (!response.body) {
       state.isLoading = false
@@ -145,14 +160,16 @@ export default component$(() => {
     const match = winnerPattern.exec(state.text)
 
     state.winner = match?.length ? match[1].toLowerCase() : ''
-    const winnerInput = document.querySelector(`textarea[name=${state.winner}]`)
 
-    if (winnerInput) {
-      party.confetti(winnerInput, {
-        count: 40,
-        size: 2,
-        spread: 15
-      })
+    if (state.winner) {
+      const winnerInput = document.querySelector(`textarea[name=${state.winner}]`)
+      if (winnerInput) {
+        party.confetti(winnerInput, {
+          count: 40,
+          size: 2,
+          spread: 15
+        })
+      }
     }
     
     state.isLoading = false
@@ -163,7 +180,7 @@ export default component$(() => {
     isLoading: false,
     url: ''
   })
-  const onSubmitImg = $(async (event: SubmitEvent) => {
+  const onSubmitImg = $(async (event: QwikSubmitEvent) => {
     imgState.showDialog = true
     imgState.isLoading = true
 
@@ -195,6 +212,8 @@ export default component$(() => {
             class={{
               rainbow: state.winner === 'opponent1'
             }}
+            required
+            maxLength="100"
             onInput$={(e) => state.opponent1 = e.target?.value}
           />
           <Input
@@ -204,6 +223,8 @@ export default component$(() => {
             class={{
               rainbow: state.winner === 'opponent2'
             }}
+            required
+            maxLength="100"
             onInput$={(e) => state.opponent2 = e.target?.value}
           />
         </div>
@@ -260,7 +281,7 @@ export default component$(() => {
         {imgState.isLoading && (
           <Svg alt="Loading" icon="icon-spinner" class="text-8xl" />
         )}
-        {!imgState.isLoading && (
+        {!imgState.isLoading && imgState.url && (
           <img src={imgState.url} alt={`An epic battle between ${state.opponent1} and ${state.opponent2}`} />
         )}
       </Dialog>

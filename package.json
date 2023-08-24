@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "langchain": "^0.0.118",
-    "party-js": "^2.2.0"
+    "party-js": "^2.2.0",
+    "zod": "^3.21.4"
   }
 }
