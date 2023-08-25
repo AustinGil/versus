@@ -5,6 +5,7 @@ import { PromptTemplate } from 'langchain/prompts'
 import party from 'party-js'
 import { Input, Dialog, Svg } from "~/components";
 import { jsFormSubmit } from "~/utils";
+import allFighters from './fighters.js'
 
 const template = `You're a professional fighting judge from Liverpool and you speak mostly with cockney slang. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent2")? Only tell me who the winner is and a short reason why.
 
@@ -193,6 +194,20 @@ export default component$(() => {
     imgState.isLoading = false
   })
 
+  const pickRandomFighters = $(() => {
+    state.text = ''
+    state.winner = ''
+
+    const fighters = [...allFighters]
+    const index1 = Math.floor(Math.random() * fighters.length)
+    const [fighter1] = fighters.splice(index1, 1)
+    const index2 = Math.floor(Math.random() * fighters.length)
+    const fighter2 = fighters[index2]
+
+    state.opponent1 = fighter1
+    state.opponent2 = fighter2
+  })
+
   return (
     <main class="max-w-4xl mx-auto p-4">
       <h1 class="text-4xl">AI of the Tiger</h1>
@@ -204,7 +219,7 @@ export default component$(() => {
         preventdefault:submit
         onSubmit$={handleSubmit}
       >
-        <div class="grid gap-4 grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2">
           <Input
             label="Opponent 1"
             name="opponent1"
@@ -229,9 +244,12 @@ export default component$(() => {
           />
         </div>
 
-        <div>
+        <div class="flex gap-4">
           <button type="submit" aria-disabled={state.isLoading}>
             {state.isLoading ? <Svg alt="Loading" icon="icon-spinner" /> : 'Tell me'}
+          </button>
+          <button type="button" title="Feeling lucky?" onClick$={pickRandomFighters}>
+            <Svg alt="Pre-fill random fighter" icon="icon-random" />
           </button>
         </div>
       </form>
@@ -285,6 +303,8 @@ export default component$(() => {
           <img src={imgState.url} alt={`An epic battle between ${state.opponent1} and ${state.opponent2}`} />
         )}
       </Dialog>
+
+      <p class="my-10 sm:mt-20 text-center">Disclaimer: This app uses AI to generate content, so things may come out a lil' wonky sometimes.</p>
     </main>
   );
 });
