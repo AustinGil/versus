@@ -33,10 +33,7 @@ export default component$(({ toggle, open, onClose$, ...props }) => {
       onClose$ && onClose$()
     }
   })
-  useVisibleTask$(() => {
-    state.isOpen = open || false
-  })
-  useTask$(({ track }) => {
+  useVisibleTask$(({ track }) => {
     track(() => open)
     state.isOpen = open || false
   })
