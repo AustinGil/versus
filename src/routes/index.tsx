@@ -110,8 +110,6 @@ export const onPost: RequestHandler = async (requestEvent) => {
               match = regex.exec(chunkValue + nextChunkValue)
             }
           }
-
-          match = regex.exec(chunkValue)
         }
 
         isStillStreaming = !done
