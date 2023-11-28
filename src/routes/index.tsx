@@ -95,12 +95,20 @@ export const onPost: RequestHandler = async (requestEvent) => {
           // Close stream
           if (payload === '[DONE]') {
             controller.close()
+            break
           } else {
-            const json = JSON.parse(payload)
-            const text = json.choices[0].delta.content || ''
-  
-            // Send chunk of data
-            controller.enqueue(text)
+            try {
+              const json = JSON.parse(payload)
+              const text = json.choices[0].delta.content || ''
+
+              // Send chunk of data
+              controller.enqueue(text)
+              match = regex.exec(chunkValue)
+            } catch (error) {
+              const nextChunk = await reader.read()
+              const nextChunkValue = decoder.decode(nextChunk.value)
+              match = regex.exec(chunkValue + nextChunkValue)
+            }
           }
 
           match = regex.exec(chunkValue)
