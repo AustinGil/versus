@@ -9,7 +9,7 @@ import { Input, Dialog, Svg } from "~/components";
 import { jsFormSubmit } from "~/utils";
 import allFighters from './fighters.js'
 
-const template = `You're a professional fighting judge from Liverpool and you speak mostly with cockney slang. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent2")? Only tell me who the winner is and a short reason why.
+const template = `You're a professional fighting judge. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent2")? Only tell me who the winner is and a short reason why.
 
 Format the response like this:
 "winner: opponent1 or opponent2. reason: the reason they won."
