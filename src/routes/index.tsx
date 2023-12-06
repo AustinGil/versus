@@ -1,6 +1,8 @@
-import { $, QwikSubmitEvent, component$, useStore } from "@builder.io/qwik";
-import { RequestHandler } from "@builder.io/qwik-city";
+import type { QwikSubmitEvent} from "@builder.io/qwik";
+import { $, component$, useStore } from "@builder.io/qwik";
+import type { RequestHandler } from "@builder.io/qwik-city";
 import { z } from 'zod'
+import OpenAI from "openai";
 import { PromptTemplate } from 'langchain/prompts'
 import party from 'party-js'
 import { Input, Dialog, Svg } from "~/components";
@@ -19,7 +21,6 @@ const promptTemplate = new PromptTemplate({
 })
 
 export const onPost: RequestHandler = async (requestEvent) => {
-  const OPENAI_API_KEY = requestEvent.env.get('OPENAI_API_KEY')
   const formData = await requestEvent.parseBody()
 
   const validation = z.object({
@@ -34,90 +35,31 @@ export const onPost: RequestHandler = async (requestEvent) => {
     return 
   }
 
-  const opponent1 = formData.opponent1
-  const opponent2 = formData.opponent2
+  const openai = new OpenAI({
+    apiKey: requestEvent.env.get('OPENAI_API_KEY'),
+  });
 
   const prompt = await promptTemplate.format({
-    opponent1: opponent1,
-    opponent2: opponent2
+    opponent1: validation.data.opponent1,
+    opponent2: validation.data.opponent2
   })
 
-  const body = {
-    model: 'gpt-3.5-turbo',
-    messages: [{ role: 'user', content: prompt }],
+  const response = await openai.chat.completions.create({
+    messages: [{ role: "user", content: prompt }],
+    model: "gpt-3.5-turbo",
     max_tokens: 300,
     temperature: 1,
     stream: true
+  });
+
+  const writer = requestEvent.getWritableStream().getWriter()
+  const encoder = new TextEncoder()
+
+  for await (const chunk of response) {
+    const text = chunk.choices[0].delta.content || ''
+    writer.write(encoder.encode(text))
   }
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'post',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(body)
-  })
-
-  if (!response.ok) {
-    console.log(await response.json())
-    requestEvent.send(response.status, response.statusText)
-    return
-  }
-
-  if (!response.body) {
-    requestEvent.send(200, '')
-    return
-  }
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      // Do work before streaming
-      // @ts-ignore
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let isStillStreaming = true
-
-      while(isStillStreaming) {
-        const {value, done} = await reader.read()
-        const chunkValue = decoder.decode(value)
-
-        /**
-         * Captures any string after the text `data: `
-         * @see https://regex101.com/r/R4QgmZ/1
-         */
-        const regex = /data:\s*(.*)/g
-        let match = regex.exec(chunkValue)
-
-        while (match !== null) {
-          const payload = match[1]
-          
-          // Close stream
-          if (payload === '[DONE]') {
-            controller.close()
-            break
-          } else {
-            try {
-              const json = JSON.parse(payload)
-              const text = json.choices[0].delta.content || ''
-
-              // Send chunk of data
-              controller.enqueue(text)
-              match = regex.exec(chunkValue)
-            } catch (error) {
-              const nextChunk = await reader.read()
-              const nextChunkValue = decoder.decode(nextChunk.value)
-              match = regex.exec(chunkValue + nextChunkValue)
-            }
-          }
-        }
-
-        isStillStreaming = !done
-      }
-    }
-  })
-
-  requestEvent.send(new Response(stream))
+  writer.close();
 }
 
 export default component$(() => {
@@ -182,6 +124,12 @@ export default component$(() => {
     state.isLoading = false
   })
 
+  const createInputHandler = (key) => $((event) => {
+    state.winner = ''
+    state.text = ''
+    state[key] = event.target.value
+  })
+
   const imgState = useStore({
     showDialog: false,
     isLoading: false,
@@ -235,7 +183,7 @@ export default component$(() => {
             }}
             required
             maxLength="100"
-            onInput$={(e) => state.opponent1 = e.target?.value}
+            onInput$={createInputHandler('opponent1')}
           />
           <Input
             label="Opponent 2"
@@ -246,7 +194,7 @@ export default component$(() => {
             }}
             required
             maxLength="100"
-            onInput$={(e) => state.opponent2 = e.target?.value}
+            onInput$={createInputHandler('opponent2')}
           />
         </div>
 
@@ -310,7 +258,7 @@ export default component$(() => {
         )}
       </Dialog>
 
-      <p class="my-10 sm:mt-20 text-center">Disclaimer: This app uses AI to generate content, so things may come out a lil' wonky sometimes.</p>
+      <p class="my-10 sm:mt-20 text-center">Disclaimer: This app uses AI to generate content, so things may come out a lil' wonky.</p>
     </main>
   );
 });
