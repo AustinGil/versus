@@ -9,12 +9,14 @@ import { Input, Dialog, Svg } from "~/components";
 import { jsFormSubmit } from "~/utils";
 import allFighters from './fighters.js'
 
-const template = `You're a professional fighting judge. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent2")? Only tell me who the winner is and a short reason why.
+const template = `You're a professional fighting judge with a sense of humor. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent2")? Only tell me who the winner is and a funny reason why.
 
 Format the response like this:
-"winner: opponent1 or opponent2. reason: the reason they won."
+winner: opponent1 or opponent2. reason: the reason they won.
 
-Return the winner using only their label ("opponent1" or "opponent2") and not their name.`
+For the winner use only their label ("opponent1" or "opponent2"). For the reason, use their name.`
+
+
 const promptTemplate = new PromptTemplate({
   template: template,
   inputVariables: ['opponent1', 'opponent2'],
@@ -165,7 +167,7 @@ export default component$(() => {
   return (
     <main class="max-w-4xl mx-auto p-4">
       <h1 class="text-4xl">AI of the Tiger</h1>
-      <p>An AI bot that will determine who would win in a fight between...</p>
+      <p>A silly AI bot that can tell you who would win in a fight between...</p>
 
       <form 
         method="post"
@@ -210,7 +212,7 @@ export default component$(() => {
 
       {state.text && (
         <article class="mt-4 border border-2 rounded-lg p-4 bg-[canvas]">
-          <p>{state.text.slice(27)}</p>
+          <p>{state.text.slice(26)}</p>
         </article>
       )}
 
