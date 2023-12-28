@@ -8,6 +8,7 @@ import party from 'party-js'
 import { Input, Dialog, Svg } from "~/components";
 import { jsFormSubmit } from "~/utils";
 import allFighters from './fighters.js'
+import type { DynamicSourceType } from "party-js/lib/systems/sources.js";
 
 const template = `You're a professional fighting judge with a sense of humor. Who would win in a fight between {opponent1} ("opponent1") and {opponent2} ("opponent2")? Only tell me who the winner is and a funny reason why.
 
@@ -115,7 +116,7 @@ export default component$(() => {
     if (state.winner) {
       const winnerInput = document.querySelector(`textarea[name=${state.winner}]`)
       if (winnerInput) {
-        party.confetti(winnerInput, {
+        party.confetti(winnerInput as DynamicSourceType, {
           count: 40,
           size: 2,
           spread: 15
@@ -126,10 +127,11 @@ export default component$(() => {
     state.isLoading = false
   })
 
-  const createInputHandler = (key) => $((event) => {
+  const createInputHandler = (key: 'opponent1'|'opponent2') => $((event: InputEvent ) => {
+    const target = event.target as HTMLInputElement
     state.winner = ''
     state.text = ''
-    state[key] = event.target.value
+    state[key] = target.value
   })
 
   const imgState = useStore({
@@ -184,7 +186,7 @@ export default component$(() => {
               rainbow: state.winner === 'opponent1'
             }}
             required
-            maxLength="100"
+            maxLength={100}
             onInput$={createInputHandler('opponent1')}
           />
           <Input
@@ -195,7 +197,7 @@ export default component$(() => {
               rainbow: state.winner === 'opponent2'
             }}
             required
-            maxLength="100"
+            maxLength={100}
             onInput$={createInputHandler('opponent2')}
           />
         </div>

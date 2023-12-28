@@ -38,8 +38,9 @@ export default component$(({ toggle, open, onClose$, ...props }) => {
     state.isOpen = open || false
   })
 
-  const handleDialogClick = $((event) => {
-    if (event.target.localName !== 'dialog') return
+  const handleDialogClick = $((/** @type {MouseEvent} */ event) => {
+    const target = /** @type {HTMLDialogElement} */ (event.target)
+    if (target.localName !== 'dialog') return
     state.isOpen = false
   })
 
